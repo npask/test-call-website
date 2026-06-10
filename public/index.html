@@ -94,10 +94,10 @@
           <div class="setting-label">Eingabelautstärke</div>
           <div class="setting-desc">Wie laut kommt dein Mikrofon an?</div>
         </div>
-        <input type="range" id="inputVolume" min="0" max="200" value="100" class="range">
+        <input type="range" id="inputVolume" min="1" max="400" value="100" class="range">
       </div>
 
-      <div class="setting-row">
+      <div class="setting-row" style="display:none;">
         <div>
           <div class="setting-label">Auto-Mute bei aktivem Spiel</div>
           <div class="setting-desc">Mikrofon stumm schalten wenn ein Vollbild-Programm läuft</div>
@@ -110,11 +110,22 @@
 
       <div class="setting-row">
         <div>
+          <div class="setting-label">Noise Suppression</div>
+          <div class="setting-desc">Hintergrund geäusche und Echo vermeiden.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="noiseSuppressionToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+      
+      <div class="setting-row">
+        <div>
           <div class="setting-label">Push-to-Talk Schwellenwert</div>
           <div class="setting-desc">Lautstärke ab der du als sprechend erkannt wirst</div>
         </div>
         <div class="threshold-wrap">
-          <input type="range" id="thresholdSlider" min="0" max="100" value="15" class="range">
+          <input type="range" id="thresholdSlider" min="1" max="50" value="1" class="range">
           <span id="thresholdVal">15</span>
         </div>
       </div>
