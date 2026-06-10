@@ -1,83 +1,268 @@
 const socket = io();
 
-let localStream;
+// ─────────────────────────────
+// State
+// ─────────────────────────────
+let localStream = null;
 let muted = false;
+let joined = false;
 
 let username = localStorage.getItem("username");
 let avatar = localStorage.getItem("avatar");
 
-const setup = document.getElementById("setup");
-const privacy = document.getElementById("privacy");
+// ─────────────────────────────
+// DOM
+// ─────────────────────────────
+const privacyOverlay = document.getElementById("privacyOverlay");
+const setupOverlay = document.getElementById("setupOverlay");
+const participantsEl = document.getElementById("participants");
+const emptyState = document.getElementById("emptyState");
 
-if (!username || !avatar) {
-    setup.style.display = "flex";
-} else {
-    setup.style.display = "none";
+const joinBtn = document.getElementById("joinBtn");
+const leaveBtn = document.getElementById("leaveBtn");
+
+const ctrlMute = document.getElementById("ctrlMute");
+const micIcon = document.getElementById("ctrlMicIcon");
+const mutedIcon = document.getElementById("ctrlMutedIcon");
+
+const selfName = document.getElementById("selfName");
+const selfStatus = document.getElementById("selfStatus");
+const selfInitial = document.getElementById("selfInitial");
+const selfAvatarImg = document.getElementById("selfAvatarImg");
+
+const connectionStatus = document.getElementById("connectionStatus");
+
+// ─────────────────────────────
+// INIT UI STATES
+// ─────────────────────────────
+function updateSelfUI() {
+  if (username) {
+    selfName.textContent = username;
+    selfInitial.textContent = username[0].toUpperCase();
+  }
+
+  if (avatar) {
+    selfAvatarImg.src = avatar;
+    selfAvatarImg.style.display = "block";
+    selfInitial.style.display = "none";
+  }
 }
 
-privacy.style.display = "flex";
+function showSetupIfNeeded() {
+  if (!username || !avatar) {
+    setupOverlay.style.display = "flex";
+  } else {
+    setupOverlay.style.display = "none";
+  }
+}
 
+// ─────────────────────────────
+// PRIVACY
+// ─────────────────────────────
+document.getElementById("acceptPrivacy").onclick = () => {
+  privacyOverlay.style.display = "none";
+};
+
+// ─────────────────────────────
+// SETUP (Profil speichern)
+// ─────────────────────────────
 document.getElementById("saveSetup").onclick = () => {
+  const name = document.getElementById("setupName").value.trim();
+  const file = document.getElementById("avatarFile").files[0];
 
-    const name = document.getElementById("name").value;
+  if (!name) {
+    document.getElementById("setupError").textContent = "Name fehlt";
+    return;
+  }
 
-    const file = document.getElementById("avatar").files[0];
+  if (!file) {
+    localStorage.setItem("username", name);
+    username = name;
+    updateSelfUI();
+    setupOverlay.style.display = "none";
+    return;
+  }
 
-    const reader = new FileReader();
+  const reader = new FileReader();
+  reader.onload = () => {
+    localStorage.setItem("username", name);
+    localStorage.setItem("avatar", reader.result);
 
-    reader.onload = () => {
+    username = name;
+    avatar = reader.result;
 
-        localStorage.setItem("username", name);
-        localStorage.setItem("avatar", reader.result);
+    updateSelfUI();
+    setupOverlay.style.display = "none";
+  };
 
-        setup.style.display = "none";
-
-    };
-
-    reader.readAsDataURL(file);
+  reader.readAsDataURL(file);
 };
 
-document.getElementById("accept").onclick = () => {
-    privacy.style.display = "none";
+// Avatar click
+document.getElementById("avatarUploadArea").onclick = () => {
+  document.getElementById("avatarFile").click();
 };
 
-document.getElementById("join").onclick = async () => {
+// ─────────────────────────────
+// JOIN / LEAVE
+// ─────────────────────────────
+joinBtn.onclick = async () => {
+  if (joined) return;
 
-    localStream = await navigator.mediaDevices.getUserMedia({
-        audio: true
-    });
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     socket.emit("join", {
-        username: localStorage.getItem("username"),
-        avatar: localStorage.getItem("avatar")
+      username,
+      avatar
     });
 
+    joined = true;
+
+    joinBtn.style.display = "none";
+    leaveBtn.style.display = "inline-flex";
+    ctrlMute.disabled = false;
+
+    selfStatus.textContent = "Verbunden";
+    connectionStatus.innerHTML = `
+      <span class="status-dot online"></span>
+      <span>Verbunden</span>
+    `;
+  } catch (e) {
+    console.error(e);
+    alert("Mikrofon-Zugriff verweigert");
+  }
 };
 
-document.getElementById("mute").onclick = () => {
+leaveBtn.onclick = () => {
+  socket.emit("leave");
 
-    muted = !muted;
+  if (localStream) {
+    localStream.getTracks().forEach(t => t.stop());
+  }
 
-    localStream.getAudioTracks().forEach(t => {
-        t.enabled = !muted;
-    });
+  joined = false;
 
+  joinBtn.style.display = "inline-flex";
+  leaveBtn.style.display = "none";
+  ctrlMute.disabled = true;
+
+  participantsEl.innerHTML = "";
+  emptyState.style.display = "flex";
+
+  selfStatus.textContent = "Offline";
+  connectionStatus.innerHTML = `
+    <span class="status-dot offline"></span>
+    <span>Getrennt</span>
+  `;
 };
+
+// ─────────────────────────────
+// MUTE
+// ─────────────────────────────
+function setMuteUI(state) {
+  muted = state;
+
+  if (muted) {
+    micIcon.style.display = "none";
+    mutedIcon.style.display = "block";
+  } else {
+    micIcon.style.display = "block";
+    mutedIcon.style.display = "none";
+  }
+}
+
+ctrlMute.onclick = () => {
+  if (!localStream) return;
+
+  muted = !muted;
+
+  localStream.getAudioTracks().forEach(t => {
+    t.enabled = !muted;
+  });
+
+  socket.emit("mute-state", muted);
+  setMuteUI(muted);
+};
+
+// ─────────────────────────────
+// PARTICIPANTS RENDER
+// ─────────────────────────────
+function renderUsers(users) {
+  const list = Object.entries(users || {});
+
+  participantsEl.innerHTML = "";
+
+  if (list.length === 0) {
+    emptyState.style.display = "flex";
+    return;
+  }
+
+  emptyState.style.display = "none";
+
+  for (const [id, u] of list) {
+    participantsEl.innerHTML += `
+      <div class="participant ${u.speaking ? "speaking" : ""}">
+        <div class="participant-avatar-wrap">
+          <div class="participant-avatar">
+            ${
+              u.avatar
+                ? `<img src="${u.avatar}">`
+                : `<span>${(u.username || "?")[0].toUpperCase()}</span>`
+            }
+          </div>
+          ${
+            u.muted
+              ? `<div class="participant-muted-badge">🔇</div>`
+              : ""
+          }
+        </div>
+
+        <div class="participant-name">${u.username}</div>
+
+        <div class="participant-status ${
+          u.speaking ? "speaking-label" : ""
+        }">
+          ${u.speaking ? "spricht..." : "idle"}
+        </div>
+      </div>
+    `;
+  }
+}
+
+// ─────────────────────────────
+// SOCKET EVENTS
+// ─────────────────────────────
+socket.on("connect", () => {
+  console.log("connected");
+});
 
 socket.on("users", (users) => {
-
-    const container = document.getElementById("participants");
-    container.innerHTML = "";
-
-    Object.values(users).forEach(u => {
-
-        container.innerHTML += `
-            <div class="user">
-                <img src="${u.avatar}">
-                <div>${u.username}</div>
-            </div>
-        `;
-
-    });
-
+  renderUsers(users);
 });
+
+socket.on("user-joined", () => {
+  // optional toast later
+});
+
+socket.on("user-left", () => {
+  // handled by users refresh
+});
+
+socket.on("speaking", ({ id, speaking }) => {
+  const el = [...document.querySelectorAll(".participant")][0];
+  // simple refresh (server already sends full state via users)
+});
+
+socket.on("mute-state", ({ id, muted }) => {
+  // handled via users refresh
+});
+
+// ─────────────────────────────
+// INIT
+// ─────────────────────────────
+updateSelfUI();
+showSetupIfNeeded();
+
+setMuteUI(false);
+ctrlMute.disabled = true;
