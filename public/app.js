@@ -30,6 +30,7 @@ let inputVolume= parseFloat(localStorage.getItem("vc_inputVol") || "1");
 let threshold  = parseInt(localStorage.getItem("vc_threshold")   || "15");
 let bgTheme    = localStorage.getItem("vc_bg")         || "dark";
 let compact    = localStorage.getItem("vc_compact")    === "true";
+let noiseSp    = localStorage.getItem("noiseSp")    === "false";
 
 // ─────────────────────────────
 // DOM REFS
@@ -350,9 +351,9 @@ joinBtn.onclick = async () => {
     const micId = localStorage.getItem("vc_micId");
     const constraints = {
       audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
+        echoCancellation: noiseSp,
+        noiseSuppression: noiseSp,
+        autoGainControl: noiseSp,
         ...(micId ? { deviceId: { exact: micId } } : {})
       }
     };
@@ -676,6 +677,7 @@ function populateSettings() {
   document.getElementById("thresholdSlider").value= threshold;
   document.getElementById("thresholdVal").textContent = threshold;
   document.getElementById("autoMuteToggle").checked = localStorage.getItem("vc_autoMute") === "true";
+  document.getElementById("noiseSuppressionToggle").checked = noiseSp;
 
   // Appearance
   document.getElementById("bgSelect").value      = bgTheme;
@@ -722,6 +724,11 @@ document.getElementById("thresholdSlider").oninput = (e) => {
 // Auto-mute
 document.getElementById("autoMuteToggle").onchange = (e) => {
   localStorage.setItem("vc_autoMute", e.target.checked);
+};
+
+// Noise Suppression
+document.getElementById("noiseSuppressionToggle").onchange = (e) => {
+  localStorage.setItem("noiseSp", e.target.checked);
 };
 
 // Background
@@ -887,19 +894,42 @@ function toast(msg, type = "info") {
 // SELF UI
 // ─────────────────────────────
 function updateSelfUI() {
-  if (username) {
-    selfName.textContent = username;
-    selfInitial.textContent = username[0].toUpperCase();
-  }
+  const selfArea = document.getElementById("self-area");
+  if (!selfArea) return;
+
+  selfArea.innerHTML = "";
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "self-profile-badge";
+
+  const avatarEl = document.createElement("div");
+  avatarEl.className = "sp-avatar";
 
   if (avatar) {
-    selfAvatarImg.src = avatar;
-    selfAvatarImg.style.display = "block";
-    selfInitial.style.display = "none";
+    avatarEl.style.backgroundImage = `url(${avatar})`;
+    avatarEl.style.backgroundSize = "cover";
+    avatarEl.style.backgroundPosition = "center";
   } else {
-    selfAvatarImg.style.display = "none";
-    selfInitial.style.display = "flex";
+    avatarEl.style.background = profileColor || "#5865f2";
   }
+
+  const info = document.createElement("div");
+  info.className = "sp-info";
+
+  const nameEl = document.createElement("div");
+  nameEl.textContent = username || "Guest";
+
+  const colorBar = document.createElement("div");
+  colorBar.className = "sp-color";
+  colorBar.style.background = profileColor || "#5865f2";
+
+  info.appendChild(nameEl);
+  info.appendChild(colorBar);
+
+  wrapper.appendChild(avatarEl);
+  wrapper.appendChild(info);
+
+  selfArea.appendChild(wrapper);
 }
 
 // ─────────────────────────────
