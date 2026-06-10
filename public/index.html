@@ -2,325 +2,40 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Voice Chat</title>
-
-<style>
-body{
-    margin:0;
-    font-family:Arial,sans-serif;
-    background:#111;
-    color:white;
-}
-
-.container{
-    max-width:900px;
-    margin:auto;
-    padding:20px;
-}
-
-.card{
-    background:#1d1d1d;
-    border-radius:12px;
-    padding:20px;
-    margin-bottom:20px;
-}
-
-input{
-    width:100%;
-    padding:10px;
-    border:none;
-    border-radius:8px;
-    margin-top:10px;
-}
-
-button{
-    padding:10px 16px;
-    border:none;
-    border-radius:8px;
-    cursor:pointer;
-    margin-right:10px;
-    margin-top:10px;
-}
-
-.avatar{
-    width:80px;
-    height:80px;
-    border-radius:50%;
-    object-fit:cover;
-    background:#333;
-}
-
-#participants{
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px;
-}
-
-.user{
-    width:140px;
-    background:#222;
-    padding:10px;
-    border-radius:10px;
-    text-align:center;
-}
-
-.user img{
-    width:64px;
-    height:64px;
-    border-radius:50%;
-    object-fit:cover;
-}
-
-.mic-active{
-    color:lime;
-}
-
-.mic-off{
-    color:red;
-}
-</style>
+<title>Voice App</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="container">
-
-<div class="card">
-    <h2>Datenschutzhinweis</h2>
-
-    <p>
-        Name und Profilbild werden ausschließlich lokal
-        im Browser gespeichert.
-    </p>
-
-    <p>
-        Das Mikrofon wird erst nach Ihrer Zustimmung verwendet.
-    </p>
-
-    <p>
-        Es werden keine Audiodaten gespeichert.
-    </p>
-</div>
-
-<div class="card">
-
-    <h2>Profil</h2>
-
-    <img id="avatarPreview"
-         class="avatar"
-         src="https://via.placeholder.com/80">
-
-    <br><br>
-
-    <input
-        id="username"
-        placeholder="Dein Name">
-
-    <br><br>
-
-    <input
-        id="avatar"
-        type="file"
-        accept="image/*">
-
-    <br>
-
-    <button id="save">
-        Speichern
-    </button>
-
-    <button id="clear">
-        Daten löschen
-    </button>
-
-</div>
-
-<div class="card">
-
-    <h2>Voice Chat</h2>
-
-    <div id="status" class="mic-off">
-        Mikrofon nicht aktiv
+<!-- FIRST START -->
+<div id="setup">
+    <div class="box">
+        <h2>Ersteinrichtung</h2>
+        <input id="name" placeholder="Name">
+        <input id="avatar" type="file">
+        <button id="saveSetup">Speichern</button>
     </div>
-
-    <button id="join">
-        Join
-    </button>
-
-    <button id="mute">
-        Mute
-    </button>
-
 </div>
 
-<div class="card">
-
-    <h2>Teilnehmer</h2>
-
-    <div id="participants"></div>
-
+<!-- DSGVO -->
+<div id="privacy">
+    <div class="box">
+        <h2>Datenschutz</h2>
+        <p>Mikrofon wird nur nach Zustimmung genutzt.</p>
+        <button id="accept">Zustimmen</button>
+    </div>
 </div>
 
-</div>
+<!-- APP -->
+<h2 style="padding:10px">Voice Room</h2>
 
-<script>
+<button id="join">Join</button>
+<button id="mute">Mute</button>
 
-const usernameInput =
-    document.getElementById("username");
+<div id="participants"></div>
 
-const avatarInput =
-    document.getElementById("avatar");
-
-const avatarPreview =
-    document.getElementById("avatarPreview");
-
-const statusText =
-    document.getElementById("status");
-
-let localStream;
-let muted = false;
-
-function loadData(){
-
-    const username =
-        localStorage.getItem("username");
-
-    const avatar =
-        localStorage.getItem("avatar");
-
-    if(username)
-        usernameInput.value = username;
-
-    if(avatar)
-        avatarPreview.src = avatar;
-
-}
-
-loadData();
-
-document
-.getElementById("save")
-.onclick = () => {
-
-    localStorage.setItem(
-        "username",
-        usernameInput.value
-    );
-
-    alert("Gespeichert");
-
-};
-
-avatarInput.addEventListener(
-"change",
-e => {
-
-    const file =
-        e.target.files[0];
-
-    if(!file) return;
-
-    const reader =
-        new FileReader();
-
-    reader.onload = () => {
-
-        avatarPreview.src =
-            reader.result;
-
-        localStorage.setItem(
-            "avatar",
-            reader.result
-        );
-
-    };
-
-    reader.readAsDataURL(file);
-
-});
-
-document
-.getElementById("clear")
-.onclick = () => {
-
-    localStorage.clear();
-
-    location.reload();
-
-};
-
-document
-.getElementById("join")
-.onclick = async () => {
-
-    try{
-
-        localStream =
-            await navigator
-            .mediaDevices
-            .getUserMedia({
-                audio:true
-            });
-
-        statusText.textContent =
-            "🎤 Mikrofon aktiv";
-
-        statusText.className =
-            "mic-active";
-
-        alert(
-            "Mikrofon erfolgreich aktiviert."
-        );
-
-    }
-    catch(err){
-
-        alert(
-            "Mikrofonzugriff verweigert."
-        );
-
-    }
-
-};
-
-document
-.getElementById("mute")
-.onclick = () => {
-
-    if(!localStream) return;
-
-    muted = !muted;
-
-    localStream
-    .getAudioTracks()
-    .forEach(track => {
-
-        track.enabled = !muted;
-
-    });
-
-    if(muted){
-
-        statusText.textContent =
-            "🔇 Stumm";
-
-        statusText.className =
-            "mic-off";
-
-    }else{
-
-        statusText.textContent =
-            "🎤 Mikrofon aktiv";
-
-        statusText.className =
-            "mic-active";
-
-    }
-
-};
-
-</script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js"></script>
 
 </body>
 </html>
