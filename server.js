@@ -4,32 +4,46 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-
 const io = new Server(server);
 
 app.use(express.static("public"));
 
-io.on("connection", socket => {
+const users = {}; // socket.id -> {username, avatar}
 
-    socket.on("join-room", room => {
-        socket.join(room);
+io.on("connection", (socket) => {
 
-        socket.to(room).emit("user-joined", socket.id);
+    socket.on("join", (data) => {
 
-        socket.on("signal", data => {
-            io.to(data.target).emit("signal", {
-                sender: socket.id,
-                signal: data.signal
-            });
+        users[socket.id] = {
+            username: data.username,
+            avatar: data.avatar
+        };
+
+        socket.broadcast.emit("user-joined", {
+            id: socket.id,
+            ...users[socket.id]
         });
 
-        socket.on("disconnect", () => {
-            socket.to(room).emit("user-left", socket.id);
+        io.emit("users", users);
+    });
+
+    socket.on("signal", (data) => {
+        io.to(data.to).emit("signal", {
+            from: socket.id,
+            signal: data.signal
         });
+    });
+
+    socket.on("disconnect", () => {
+
+        delete users[socket.id];
+
+        io.emit("user-left", socket.id);
+        io.emit("users", users);
     });
 
 });
 
 server.listen(3000, () => {
-    console.log("Server läuft auf Port 3000");
+    console.log("http://localhost:3000");
 });
