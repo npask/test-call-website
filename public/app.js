@@ -894,42 +894,28 @@ function toast(msg, type = "info") {
 // SELF UI
 // ─────────────────────────────
 function updateSelfUI() {
-  const selfArea = document.getElementById("self-area");
-  if (!selfArea) return;
-
-  selfArea.innerHTML = "";
-
-  const wrapper = document.createElement("div");
-  wrapper.className = "self-profile-badge";
-
-  const avatarEl = document.createElement("div");
-  avatarEl.className = "sp-avatar";
-
-  if (avatar) {
-    avatarEl.style.backgroundImage = `url(${avatar})`;
-    avatarEl.style.backgroundSize = "cover";
-    avatarEl.style.backgroundPosition = "center";
-  } else {
-    avatarEl.style.background = profileColor || "#5865f2";
+  if (username) {
+    selfName.textContent = username;
+    selfInitial.textContent = username[0].toUpperCase();
   }
 
-  const info = document.createElement("div");
-  info.className = "sp-info";
+  if (avatar) {
+    selfAvatarImg.src = avatar;
+    selfAvatarImg.style.display = "block";
+    selfInitial.style.display = "none";
+  } else {
+    selfAvatarImg.style.display = "none";
+    selfInitial.style.display = "flex";
+  }
 
-  const nameEl = document.createElement("div");
-  nameEl.textContent = username || "Guest";
+  // 🎨 COLOR + GRADIENT ADDON
+  const selfArea = document.getElementById("self-area");
+  if (selfArea) {
+    const c = profileColor || "#5865f2";
 
-  const colorBar = document.createElement("div");
-  colorBar.className = "sp-color";
-  colorBar.style.background = profileColor || "#5865f2";
-
-  info.appendChild(nameEl);
-  info.appendChild(colorBar);
-
-  wrapper.appendChild(avatarEl);
-  wrapper.appendChild(info);
-
-  selfArea.appendChild(wrapper);
+    selfArea.style.background = `linear-gradient(135deg, ${c}33, ${c}00)`;
+    selfArea.style.border = `1px solid ${c}55`;
+  }
 }
 
 // ─────────────────────────────
