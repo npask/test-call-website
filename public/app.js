@@ -1,7 +1,7 @@
 const socket = io();
 
 // ─────────────────────────────
-// State
+// STATE
 // ─────────────────────────────
 let localStream = null;
 let muted = false;
@@ -11,10 +11,12 @@ let username = localStorage.getItem("username");
 let avatar = localStorage.getItem("avatar");
 
 // ─────────────────────────────
-// DOM
+// DOM MAIN
 // ─────────────────────────────
 const privacyOverlay = document.getElementById("privacyOverlay");
 const setupOverlay = document.getElementById("setupOverlay");
+const settingsOverlay = document.getElementById("settingsOverlay");
+
 const participantsEl = document.getElementById("participants");
 const emptyState = document.getElementById("emptyState");
 
@@ -22,8 +24,13 @@ const joinBtn = document.getElementById("joinBtn");
 const leaveBtn = document.getElementById("leaveBtn");
 
 const ctrlMute = document.getElementById("ctrlMute");
-const micIcon = document.getElementById("ctrlMicIcon");
-const mutedIcon = document.getElementById("ctrlMutedIcon");
+const muteBtn = document.getElementById("muteBtn");
+
+const micIcon = document.getElementById("micIcon");
+const mutedIcon = document.getElementById("mutedIcon");
+
+const ctrlMicIcon = document.getElementById("ctrlMicIcon");
+const ctrlMutedIcon = document.getElementById("ctrlMutedIcon");
 
 const selfName = document.getElementById("selfName");
 const selfStatus = document.getElementById("selfStatus");
@@ -33,7 +40,7 @@ const selfAvatarImg = document.getElementById("selfAvatarImg");
 const connectionStatus = document.getElementById("connectionStatus");
 
 // ─────────────────────────────
-// INIT UI STATES
+// INIT UI
 // ─────────────────────────────
 function updateSelfUI() {
   if (username) {
@@ -64,37 +71,31 @@ document.getElementById("acceptPrivacy").onclick = () => {
 };
 
 // ─────────────────────────────
-// SETUP (Profil speichern)
+// SETUP PROFILE
 // ─────────────────────────────
 document.getElementById("saveSetup").onclick = () => {
   const name = document.getElementById("setupName").value.trim();
   const file = document.getElementById("avatarFile").files[0];
 
-  if (!name) {
-    document.getElementById("setupError").textContent = "Name fehlt";
-    return;
-  }
+  if (!name) return;
 
-  if (!file) {
+  const finish = (img) => {
     localStorage.setItem("username", name);
     username = name;
-    updateSelfUI();
-    setupOverlay.style.display = "none";
-    return;
-  }
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    localStorage.setItem("username", name);
-    localStorage.setItem("avatar", reader.result);
-
-    username = name;
-    avatar = reader.result;
+    if (img) {
+      localStorage.setItem("avatar", img);
+      avatar = img;
+    }
 
     updateSelfUI();
     setupOverlay.style.display = "none";
   };
 
+  if (!file) return finish(null);
+
+  const reader = new FileReader();
+  reader.onload = () => finish(reader.result);
   reader.readAsDataURL(file);
 };
 
@@ -102,6 +103,27 @@ document.getElementById("saveSetup").onclick = () => {
 document.getElementById("avatarUploadArea").onclick = () => {
   document.getElementById("avatarFile").click();
 };
+
+// ─────────────────────────────
+// SETTINGS MODAL + TABS
+// ─────────────────────────────
+document.getElementById("settingsBtn").onclick = () => {
+  settingsOverlay.style.display = "flex";
+};
+
+document.getElementById("closeSettings").onclick = () => {
+  settingsOverlay.style.display = "none";
+};
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(c => c.classList.add("hidden"));
+
+    tab.classList.add("active");
+    document.getElementById("tab-" + tab.dataset.tab).classList.remove("hidden");
+  };
+});
 
 // ─────────────────────────────
 // JOIN / LEAVE
@@ -129,8 +151,7 @@ joinBtn.onclick = async () => {
       <span>Verbunden</span>
     `;
   } catch (e) {
-    console.error(e);
-    alert("Mikrofon-Zugriff verweigert");
+    alert("Mikrofon nicht erlaubt");
   }
 };
 
@@ -151,6 +172,7 @@ leaveBtn.onclick = () => {
   emptyState.style.display = "flex";
 
   selfStatus.textContent = "Offline";
+
   connectionStatus.innerHTML = `
     <span class="status-dot offline"></span>
     <span>Getrennt</span>
@@ -158,35 +180,38 @@ leaveBtn.onclick = () => {
 };
 
 // ─────────────────────────────
-// MUTE
+// MUTE SYSTEM
 // ─────────────────────────────
 function setMuteUI(state) {
   muted = state;
 
-  if (muted) {
-    micIcon.style.display = "none";
-    mutedIcon.style.display = "block";
-  } else {
-    micIcon.style.display = "block";
-    mutedIcon.style.display = "none";
+  if (localStream) {
+    localStream.getAudioTracks().forEach(t => {
+      t.enabled = !state;
+    });
   }
+
+  // bottom control
+  ctrlMicIcon.style.display = state ? "none" : "block";
+  ctrlMutedIcon.style.display = state ? "block" : "none";
+
+  // top control
+  micIcon.style.display = state ? "none" : "block";
+  mutedIcon.style.display = state ? "block" : "none";
 }
 
 ctrlMute.onclick = () => {
-  if (!localStream) return;
-
-  muted = !muted;
-
-  localStream.getAudioTracks().forEach(t => {
-    t.enabled = !muted;
-  });
-
+  setMuteUI(!muted);
   socket.emit("mute-state", muted);
-  setMuteUI(muted);
+};
+
+muteBtn.onclick = () => {
+  setMuteUI(!muted);
+  socket.emit("mute-state", muted);
 };
 
 // ─────────────────────────────
-// PARTICIPANTS RENDER
+// USERS RENDER
 // ─────────────────────────────
 function renderUsers(users) {
   const list = Object.entries(users || {});
@@ -211,18 +236,12 @@ function renderUsers(users) {
                 : `<span>${(u.username || "?")[0].toUpperCase()}</span>`
             }
           </div>
-          ${
-            u.muted
-              ? `<div class="participant-muted-badge">🔇</div>`
-              : ""
-          }
+
+          ${u.muted ? `<div class="participant-muted-badge">🔇</div>` : ""}
         </div>
 
         <div class="participant-name">${u.username}</div>
-
-        <div class="participant-status ${
-          u.speaking ? "speaking-label" : ""
-        }">
+        <div class="participant-status ${u.speaking ? "speaking-label" : ""}">
           ${u.speaking ? "spricht..." : "idle"}
         </div>
       </div>
@@ -231,32 +250,9 @@ function renderUsers(users) {
 }
 
 // ─────────────────────────────
-// SOCKET EVENTS
+// SOCKET
 // ─────────────────────────────
-socket.on("connect", () => {
-  console.log("connected");
-});
-
-socket.on("users", (users) => {
-  renderUsers(users);
-});
-
-socket.on("user-joined", () => {
-  // optional toast later
-});
-
-socket.on("user-left", () => {
-  // handled by users refresh
-});
-
-socket.on("speaking", ({ id, speaking }) => {
-  const el = [...document.querySelectorAll(".participant")][0];
-  // simple refresh (server already sends full state via users)
-});
-
-socket.on("mute-state", ({ id, muted }) => {
-  // handled via users refresh
-});
+socket.on("users", renderUsers);
 
 // ─────────────────────────────
 // INIT
