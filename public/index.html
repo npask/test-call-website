@@ -1,41 +1,282 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<title>Voice App</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoiceChat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- FIRST START -->
-<div id="setup">
-    <div class="box">
-        <h2>Ersteinrichtung</h2>
-        <input id="name" placeholder="Name">
-        <input id="avatar" type="file">
-        <button id="saveSetup">Speichern</button>
-    </div>
+<!-- ── PRIVACY CONSENT ────────────────────────────────────────── -->
+<div id="privacyOverlay" class="overlay">
+  <div class="modal glass">
+    <div class="modal-icon">🔒</div>
+    <h2>Datenschutz</h2>
+    <p>Diese App überträgt deine Stimme in Echtzeit an andere Teilnehmer. Mikrofon-Zugriff wird erst nach dem Joinen angefragt. Keine Daten werden dauerhaft gespeichert.</p>
+    <button class="btn btn-primary" id="acceptPrivacy">Verstanden & weiter</button>
+  </div>
 </div>
 
-<!-- DSGVO -->
-<div id="privacy">
-    <div class="box">
-        <h2>Datenschutz</h2>
-        <p>Mikrofon wird nur nach Zustimmung genutzt.</p>
-        <button id="accept">Zustimmen</button>
+<!-- ── FIRST SETUP ────────────────────────────────────────────── -->
+<div id="setupOverlay" class="overlay" style="display:none">
+  <div class="modal glass">
+    <div class="modal-icon">👤</div>
+    <h2>Profil einrichten</h2>
+    <div class="avatar-upload-area" id="avatarUploadArea">
+      <div class="avatar-preview" id="avatarPreview">
+        <span id="avatarInitial">?</span>
+        <img id="avatarImg" style="display:none">
+      </div>
+      <div class="avatar-hint">Klicken zum Hochladen</div>
+      <input type="file" id="avatarFile" accept="image/*" style="display:none">
     </div>
+    <input class="input" id="setupName" placeholder="Dein Name" maxlength="32">
+    <button class="btn btn-primary" id="saveSetup">Weiter →</button>
+    <p class="form-error" id="setupError"></p>
+  </div>
 </div>
 
-<!-- APP -->
-<h2 style="padding:10px">Voice Room</h2>
+<!-- ── SETTINGS MODAL ─────────────────────────────────────────── -->
+<div id="settingsOverlay" class="overlay" style="display:none">
+  <div class="modal glass settings-modal">
+    <div class="settings-header">
+      <h2>Einstellungen</h2>
+      <button class="icon-btn" id="closeSettings">✕</button>
+    </div>
+    <div class="settings-tabs">
+      <button class="tab active" data-tab="profile">Profil</button>
+      <button class="tab" data-tab="audio">Audio</button>
+      <button class="tab" data-tab="appearance">Design</button>
+    </div>
 
-<button id="join">Join</button>
-<button id="mute">Mute</button>
+    <!-- Profile Tab -->
+    <div class="tab-content" id="tab-profile">
+      <div class="avatar-upload-area" id="settingsAvatarArea">
+        <div class="avatar-preview large" id="settingsAvatarPreview">
+          <span id="settingsAvatarInitial">?</span>
+          <img id="settingsAvatarImg" style="display:none">
+        </div>
+        <div class="avatar-hint">Klicken zum Ändern</div>
+        <input type="file" id="settingsAvatarFile" accept="image/*" style="display:none">
+      </div>
+      <label class="input-label">Anzeigename</label>
+      <input class="input" id="settingsName" maxlength="32">
 
-<div id="participants"></div>
+      <label class="input-label">Profilfarbe</label>
+      <div class="color-presets" id="colorPresets"></div>
+
+      <label class="input-label">Profilhintergrund</label>
+      <div class="banner-options">
+        <div class="banner-opt" data-banner="none">Keiner</div>
+        <div class="banner-opt" data-banner="gradient1">Gradient 1</div>
+        <div class="banner-opt" data-banner="gradient2">Gradient 2</div>
+        <div class="banner-opt" data-banner="gradient3">Gradient 3</div>
+      </div>
+
+      <button class="btn btn-primary mt16" id="saveProfile">Speichern</button>
+    </div>
+
+    <!-- Audio Tab -->
+    <div class="tab-content hidden" id="tab-audio">
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Eingabegerät</div>
+          <div class="setting-desc">Welches Mikrofon benutzt du?</div>
+        </div>
+        <select class="select" id="micSelect"></select>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Eingabelautstärke</div>
+          <div class="setting-desc">Wie laut kommt dein Mikrofon an?</div>
+        </div>
+        <input type="range" id="inputVolume" min="0" max="200" value="100" class="range">
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Auto-Mute bei aktivem Spiel</div>
+          <div class="setting-desc">Mikrofon stumm schalten wenn ein Vollbild-Programm läuft</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="autoMuteToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Push-to-Talk Schwellenwert</div>
+          <div class="setting-desc">Lautstärke ab der du als sprechend erkannt wirst</div>
+        </div>
+        <div class="threshold-wrap">
+          <input type="range" id="thresholdSlider" min="0" max="100" value="15" class="range">
+          <span id="thresholdVal">15</span>
+        </div>
+      </div>
+
+      <div class="mic-meter-label">Mikrofon-Pegel</div>
+      <div class="mic-meter-wrap">
+        <div class="mic-meter-bar" id="micMeterBar"></div>
+      </div>
+      <button class="btn btn-secondary mt16" id="testMic">Mikrofon testen</button>
+    </div>
+
+    <!-- Appearance Tab -->
+    <div class="tab-content hidden" id="tab-appearance">
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Hintergrund</div>
+        </div>
+        <select class="select" id="bgSelect">
+          <option value="dark">Dunkel (Standard)</option>
+          <option value="darker">Tief Dunkel</option>
+          <option value="midnight">Mitternacht Blau</option>
+          <option value="forest">Wald</option>
+          <option value="custom">Benutzerdefiniert</option>
+        </select>
+      </div>
+      <div id="customBgWrap" style="display:none">
+        <label class="input-label">Hintergrundfarbe</label>
+        <input type="color" id="customBgColor" value="#0f0f0f" class="color-picker">
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Akzentfarbe</div>
+        </div>
+        <div class="color-presets" id="accentPresets"></div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Kompaktes Layout</div>
+          <div class="setting-desc">Weniger Abstände, mehr Teilnehmer sichtbar</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="compactToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN APP ───────────────────────────────────────────────── -->
+<div id="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="logo">
+        <span class="logo-icon">🎙</span>
+        <span class="logo-name">VoiceChat</span>
+      </div>
+    </div>
+
+    <nav class="channel-list">
+      <div class="channel-section-label">SPRACH-KANÄLE</div>
+      <div class="channel-item active" id="mainChannelItem">
+        <span class="channel-hash">🔊</span>
+        <span class="channel-name">Allgemein</span>
+        <span class="channel-count" id="channelCount">0</span>
+      </div>
+    </nav>
+
+    <!-- Self user area -->
+    <div class="self-area">
+      <div class="self-avatar-wrap">
+        <div class="self-avatar" id="selfAvatar">
+          <span id="selfInitial">?</span>
+          <img id="selfAvatarImg" style="display:none">
+          <div class="self-avatar-speaking" id="selfSpeakingRing"></div>
+        </div>
+        <div class="status-dot online"></div>
+      </div>
+      <div class="self-info">
+        <div class="self-name" id="selfName">Nicht angemeldet</div>
+        <div class="self-status" id="selfStatus">Offline</div>
+      </div>
+      <div class="self-controls">
+        <button class="icon-btn" id="muteBtn" title="Stummschalten">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" id="micIcon">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+          </svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" id="mutedIcon" style="display:none">
+            <path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.34 3 3 3 .23 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V20c0 .55.45 1 1 1s1-.45 1-1v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="settingsBtn" title="Einstellungen">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+    <div class="channel-header">
+      <span class="channel-header-icon">🔊</span>
+      <span class="channel-header-name">Allgemein</span>
+      <div class="header-actions">
+        <div class="connection-status" id="connectionStatus">
+          <span class="status-dot offline"></span>
+          <span>Getrennt</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="participants-wrap" id="participantsWrap">
+      <!-- Empty state -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🎙</div>
+        <div class="empty-title">Niemand ist im Kanal</div>
+        <div class="empty-sub">Tritt bei um loszulegen</div>
+      </div>
+
+      <!-- Participants grid -->
+      <div class="participants" id="participants"></div>
+    </div>
+
+    <!-- Call controls -->
+    <div class="controls-bar">
+      <div class="controls-center">
+        <button class="ctrl-btn mute-ctrl" id="ctrlMute" disabled title="Stummschalten (M)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="ctrlMicIcon">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+          </svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="ctrlMutedIcon" style="display:none">
+            <path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.34 3 3 3 .23 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V20c0 .55.45 1 1 1v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/>
+          </svg>
+        </button>
+        <button class="ctrl-btn join-ctrl" id="joinBtn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+          </svg>
+          Beitreten
+        </button>
+        <button class="ctrl-btn leave-ctrl" id="leaveBtn" style="display:none">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+          </svg>
+          Verlassen
+        </button>
+      </div>
+      <div class="controls-right">
+        <span class="latency-badge" id="latencyBadge" style="display:none">●</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast container -->
+<div id="toasts"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="app.js"></script>
-
 </body>
 </html>
