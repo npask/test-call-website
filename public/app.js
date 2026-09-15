@@ -10,6 +10,9 @@ const socket = io();
 let localStream = null;
 let muted        = false;
 let joined       = false;
+let activeChannel = new URLSearchParams(location.search).get("channel") || "general";
+let activeInvite = new URLSearchParams(location.search).get("invite") || "";
+let channels = [];
 
 // peer connections: socketId → { pc: RTCPeerConnection, gainNode: GainNode }
 const peers = {};
@@ -43,6 +46,9 @@ const participantsEl   = document.getElementById("participants");
 const emptyState       = document.getElementById("emptyState");
 const channelCount     = document.getElementById("channelCount");
 const latencyBadge     = document.getElementById("latencyBadge");
+const channelList      = document.getElementById("channelList");
+const channelTitle     = document.getElementById("channelTitle");
+const inviteBtn        = document.getElementById("inviteBtn");
 
 const joinBtn          = document.getElementById("joinBtn");
 const leaveBtn         = document.getElementById("leaveBtn");
@@ -252,6 +258,27 @@ socket.on("disconnect", () => {
   Object.keys(peers).forEach(destroyPeer);
 });
 
+socket.on("channels", list => { channels = list; renderChannels(); });
+socket.on("channel-created", channel => {
+  activeChannel = channel.id; activeInvite = channel.invite; renderChannels();
+  navigator.clipboard?.writeText(`${location.origin}${location.pathname}?channel=${channel.id}&invite=${channel.invite}`);
+  toast("Privater Kanal erstellt – Einladungslink kopiert", "success");
+});
+socket.on("join-error", message => { toast(message, "error"); if (joined) leaveBtn.click(); });
+function renderChannels() {
+  channelList.innerHTML = "";
+  channels.forEach(c => {
+    const el = document.createElement("button"); el.className = `channel-item ${c.id === activeChannel ? "active" : ""}`;
+    el.innerHTML = `<span class="channel-hash">${c.private ? "🔒" : "🔊"}</span><span class="channel-name"></span><span class="channel-count">${c.count || ""}</span>`;
+    el.querySelector(".channel-name").textContent = c.name; el.onclick = () => switchChannel(c.id); channelList.appendChild(el);
+  });
+  const current = channels.find(c => c.id === activeChannel) || channels[0];
+  if (current) { activeChannel = current.id; channelTitle.textContent = current.name; inviteBtn.style.display = current.private ? "inline-flex" : "none"; }
+}
+function switchChannel(id) { if (id === activeChannel) return; const reconnect = joined; if (reconnect) leaveBtn.click(); activeChannel = id; activeInvite = new URLSearchParams(location.search).get("invite") || ""; renderChannels(); if (reconnect) joinBtn.click(); }
+document.getElementById("createChannelBtn").onclick = () => { const name = prompt("Name für deinen privaten Kanal:"); if (name) socket.emit("create-channel", { name }); };
+inviteBtn.onclick = () => { const url = `${location.origin}${location.pathname}?channel=${activeChannel}&invite=${activeInvite}`; navigator.clipboard?.writeText(url); toast("Einladungslink kopiert", "success"); };
+
 // Full user list on join/change
 socket.on("users", (users) => {
   renderUsers(users);
@@ -360,7 +387,7 @@ joinBtn.onclick = async () => {
 
     localStream = await navigator.mediaDevices.getUserMedia(constraints);
 
-    socket.emit("join", { username, avatar });
+    socket.emit("join", { username, avatar, profileColor, channelId: activeChannel, invite: activeInvite });
 
     joined = true;
 
@@ -441,6 +468,19 @@ ctrlMute.onclick = () => {
 muteBtn.onclick = () => {
   setMuteUI(!muted);
   socket.emit("mute-state", muted);
+};
+
+// Local soundboard: 1–4 play a short confirmation tone without broadcasting it.
+document.addEventListener("keydown", e => {
+  if (!joined || e.target.matches("input,textarea") || !({1:1,2:1,3:1,4:1})[e.key]) return;
+  const ctx = getOrCreateAudioContext(), osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.frequency.value = ({1:523,2:659,3:784,4:988})[e.key]; gain.gain.setValueAtTime(.08, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .18);
+  osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + .18);
+});
+document.getElementById("soundBtn").onclick = () => {
+  const ctx = getOrCreateAudioContext(), osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.frequency.value = 740; gain.gain.setValueAtTime(.06, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .14);
+  osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + .14);
 };
 
 // Keyboard shortcut: M = toggle mute

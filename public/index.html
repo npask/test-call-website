@@ -188,12 +188,8 @@
     </div>
 
     <nav class="channel-list">
-      <div class="channel-section-label">SPRACH-KANÄLE</div>
-      <div class="channel-item active" id="mainChannelItem">
-        <span class="channel-hash">🔊</span>
-        <span class="channel-name">Allgemein</span>
-        <span class="channel-count" id="channelCount">0</span>
-      </div>
+      <div class="channel-section-label">SPRACH-KANÄLE <button id="createChannelBtn" class="channel-add" title="Privaten Kanal erstellen">+</button></div>
+      <div id="channelList"></div><span id="channelCount" hidden></span>
     </nav>
 
     <!-- Self user area -->
@@ -232,8 +228,9 @@
   <main class="main">
     <div class="channel-header">
       <span class="channel-header-icon">🔊</span>
-      <span class="channel-header-name">Allgemein</span>
+      <span class="channel-header-name" id="channelTitle">Allgemein</span>
       <div class="header-actions">
+        <button class="invite-btn" id="inviteBtn" style="display:none">Einladen</button>
         <div class="connection-status" id="connectionStatus">
           <span class="status-dot offline"></span>
           <span>Getrennt</span>
@@ -278,6 +275,7 @@
         </button>
       </div>
       <div class="controls-right">
+        <button class="invite-btn" id="soundBtn" title="Lokalen Sound testen">🔔 Sound</button>
         <span class="latency-badge" id="latencyBadge" style="display:none">●</span>
       </div>
     </div>
